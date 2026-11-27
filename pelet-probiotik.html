@@ -1,0 +1,738 @@
+<title>Pelet Probiotik Dua Kompartemen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: satu kolom panjang, dua panggung 3D (model pelet, simulasi cara kerja), lalu metode dan perlakuan */
+:root{
+  --bg:#F1F5F0; --surface:#FFFFFF; --surface-2:#E6EDE7; --fg:#12251F; --muted:#4B6058; --line:#C9D5CC;
+  --accent:#17706D; --accent-fg:#FFFFFF;
+  --outer:#D9962B; --film:#7FD6D0; --core:#1F7A78; --bac:#23A559; --path:#E0402F; --spore:#F6FFFB; --waste:#9B7653;
+  --f-display:'Bricolage Grotesque','Inter',system-ui,sans-serif;
+  --f-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1714; --surface:#12241F; --surface-2:#1A2F29; --fg:#E5EFEA; --muted:#9AB1A7; --line:#27413A;
+    --accent:#5CC4BE; --accent-fg:#05201D; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1714; --surface:#12241F; --surface-2:#1A2F29; --fg:#E5EFEA; --muted:#9AB1A7; --line:#27413A;
+  --accent:#5CC4BE; --accent-fg:#05201D; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:16px; line-height:1.65;
+  padding-block:24px 56px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:1080px; margin-inline:auto}
+h1,h2,h3{font-family:var(--f-display); line-height:1.1; margin:0; text-wrap:balance; letter-spacing:-.01em}
+h1{font-size:clamp(2.1rem,5.4vw,3.6rem); font-weight:700}
+h2{font-size:clamp(1.55rem,3.4vw,2.2rem); font-weight:700}
+h3{font-size:1.15rem; font-weight:700}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono); font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent)}
+.lead{font-size:1.1rem; color:var(--muted); max-width:46ch}
+.prose{max-width:65ch}
+section{padding-top:56px; margin-top:56px; border-top:1px solid var(--line)}
+section > .head{display:flex; flex-direction:column; gap:10px; margin-bottom:28px}
+.hero{display:grid; gap:32px; align-items:center; padding-top:8px}
+.hero .copy{display:flex; flex-direction:column; gap:18px; min-width:0}
+@media (min-width:860px){ .hero{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:48px} }
+
+/* panggung 3D */
+.stage{position:relative; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.stage.sq{aspect-ratio:1/1}
+.stage.wide{aspect-ratio:4/3}
+.stage canvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab; touch-action:pan-y; outline-offset:-3px}
+.stage canvas.drag{cursor:grabbing}
+.stage .hint{position:absolute; left:12px; bottom:10px; font-family:var(--f-mono); font-size:.72rem; color:var(--muted); pointer-events:none}
+.stage .fallback{display:none; position:absolute; inset:0; place-items:center; text-align:center; padding:24px; color:var(--muted)}
+.stage.nogl canvas,.stage.nogl .hint{display:none}
+.stage.nogl .fallback{display:grid}
+.controls{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+.seg button,.btn{
+  font:inherit; font-size:.92rem; font-weight:500; color:var(--fg); background:transparent;
+  border:1px solid var(--line); border-radius:999px; padding:8px 16px; cursor:pointer; min-height:40px;
+}
+.seg button:hover,.btn:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"],.steps button[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+button:focus-visible,canvas:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.caption{margin-top:12px; color:var(--muted); font-size:.95rem; min-height:3.2em}
+
+.legend{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:6px; font-size:.88rem; color:var(--muted)}
+.legend span{display:inline-flex; align-items:center; gap:8px}
+.sw{width:12px; height:12px; border-radius:50%; flex:none}
+
+/* dua kompartemen */
+.two{display:grid; gap:36px; align-items:center}
+@media (min-width:860px){ .two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} }
+.defs{display:flex; flex-direction:column; gap:28px; min-width:0}
+.def{display:grid; grid-template-columns:14px minmax(0,1fr); gap:0 14px}
+.def .sw{margin-top:7px}
+.def p{color:var(--muted)}
+.def h3{margin-bottom:6px}
+.sec-svg{width:100%; height:auto; max-width:480px}
+.sec-svg text{font-family:var(--f-body)}
+
+/* simulasi */
+.steps{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px}
+.steps button{
+  font:inherit; font-size:.92rem; font-weight:500; color:var(--fg); background:transparent;
+  border:1px solid var(--line); border-radius:999px; padding:8px 16px; cursor:pointer; min-height:40px;
+}
+.steps .n{font-family:var(--f-mono); margin-right:8px}
+.info{margin-top:18px; display:grid; gap:8px; max-width:65ch}
+.info .tag{font-family:var(--f-mono); font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+.info p{color:var(--muted)}
+.sim-legend{margin-top:14px}
+
+/* tabel */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; min-width:560px; font-size:.95rem}
+th,td{text-align:left; padding:14px 16px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-family:var(--f-mono); font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500}
+tr:last-child td{border-bottom:0}
+td.code{font-family:var(--f-mono); font-weight:500; color:var(--accent)}
+tr.hi td{background:var(--surface-2)}
+.note{margin-top:14px; color:var(--muted); font-size:.93rem; max-width:65ch}
+
+/* tahapan */
+.cols{display:grid; gap:40px}
+@media (min-width:860px){ .cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} }
+ol.flow{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0; counter-reset:f}
+ol.flow li{counter-increment:f; display:grid; grid-template-columns:34px minmax(0,1fr); gap:0 14px; padding:0 0 22px; position:relative}
+ol.flow li::before{
+  content:counter(f); font-family:var(--f-mono); font-size:.85rem; width:34px; height:34px; border-radius:50%;
+  border:1px solid var(--accent); color:var(--accent); display:grid; place-items:center; background:var(--bg); z-index:1;
+}
+ol.flow li::after{content:""; position:absolute; left:16px; top:34px; bottom:0; width:1px; background:var(--line)}
+ol.flow li:last-child{padding-bottom:0}
+ol.flow li:last-child::after{display:none}
+ol.flow h3{font-size:1.02rem; margin:4px 0 4px}
+ol.flow p{color:var(--muted); font-size:.95rem}
+dl.meas{margin:0; display:grid; gap:16px}
+dl.meas div{border-top:1px solid var(--line); padding-top:12px}
+dl.meas dt{font-weight:600}
+dl.meas dd{margin:2px 0 0; color:var(--muted); font-size:.95rem}
+.mono{font-family:var(--f-mono); font-size:.9em}
+
+ul.plain{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:14px; max-width:65ch}
+ul.plain li{padding-left:18px; position:relative; color:var(--muted)}
+ul.plain li::before{content:""; position:absolute; left:0; top:.7em; width:8px; height:2px; background:var(--accent)}
+ul.plain strong{color:var(--fg); font-weight:600}
+footer{margin-top:56px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; max-width:70ch}
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto !important} }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="copy">
+      <p class="eyebrow">Proposal PKM-RE</p>
+      <h1>Pelet probiotik dua kompartemen</h1>
+      <p class="lead">Satu pelet yang melepas <i>Bacillus</i> ke air kolam dan ke saluran pencernaan ikan nila.</p>
+      <p class="prose" style="color:var(--muted)">Rancangan ini sedang diuji. Halaman ini menjelaskan struktur pelet, cara kerja yang dihipotesiskan, dan rencana pengujiannya. Model 3D membantu membayangkan bentuk di dalam pelet.</p>
+    </div>
+    <div>
+      <div class="stage sq" id="heroStage">
+        <canvas id="heroCanvas" tabindex="0" aria-label="Model 3D pelet probiotik dua kompartemen. Seret untuk memutar."></canvas>
+        <div class="hint">Seret untuk memutar</div>
+        <div class="fallback">Model 3D membutuhkan WebGL. Penampang 2D tersedia di bagian berikutnya.</div>
+      </div>
+      <div class="controls seg" role="group" aria-label="Mode tampilan pelet">
+        <button type="button" data-mode="utuh" aria-pressed="false">Utuh</button>
+        <button type="button" data-mode="potongan" aria-pressed="true">Potongan</button>
+        <button type="button" data-mode="inti" aria-pressed="false">Inti saja</button>
+      </div>
+      <p class="caption" id="heroCaption" aria-live="polite"></p>
+    </div>
+  </header>
+
+  <section id="struktur">
+    <div class="head">
+      <p class="eyebrow">Struktur</p>
+      <h2>Dua kompartemen, dua tugas</h2>
+    </div>
+    <div class="two">
+      <div class="defs">
+        <div class="def">
+          <span class="sw" style="background:var(--outer)"></span>
+          <div>
+            <h3>Kompartemen luar</h3>
+            <p><i>Bacillus</i> dalam matriks yang melepas lebih cepat ke air kolam. Tujuannya membantu menguraikan sisa pakan dan limbah nitrogen.</p>
+          </div>
+        </div>
+        <div class="def">
+          <span class="sw" style="background:var(--core)"></span>
+          <div>
+            <h3>Kompartemen inti</h3>
+            <p>Spora <i>Bacillus</i> yang dilindungi kitosan. Kitosan menjaga spora dari kelembapan dan pencucian di air agar sampai ke saluran pencernaan, tempat inti melepas <i>Bacillus</i> di usus.</p>
+          </div>
+        </div>
+        <p class="note" style="margin-top:0">Kebaruannya ada pada pemisahan dua jalur penghantaran dalam satu pelet, yang kemudian diuji perbedaannya secara terukur.</p>
+      </div>
+      <div>
+        <svg class="sec-svg" viewBox="0 0 400 250" role="img" aria-label="Penampang melintang pelet: lapisan luar, film kitosan, dan inti spora">
+          <circle cx="96" cy="125" r="90" fill="var(--outer)"/>
+          <circle cx="96" cy="125" r="50" fill="var(--film)"/>
+          <circle cx="96" cy="125" r="44" fill="var(--core)"/>
+          <g fill="#1B7A45">
+            <circle cx="166" cy="125" r="3.6"/><circle cx="156" cy="80" r="3.6"/><circle cx="96" cy="50" r="3.6"/>
+            <circle cx="34" cy="78" r="3.6"/><circle cx="22" cy="135" r="3.6"/><circle cx="41" cy="180" r="3.6"/>
+            <circle cx="101" cy="204" r="3.6"/><circle cx="148" cy="186" r="3.6"/><circle cx="176" cy="150" r="3.6"/>
+            <circle cx="132" cy="48" r="3.6"/><circle cx="64" cy="204" r="3.6"/>
+          </g>
+          <g fill="var(--spore)">
+            <circle cx="116" cy="125" r="3"/><circle cx="81" cy="105" r="3"/><circle cx="106" cy="147" r="3"/>
+            <circle cx="71" cy="133" r="3"/><circle cx="101" cy="95" r="3"/><circle cx="114" cy="106" r="3"/><circle cx="82" cy="152" r="3"/>
+          </g>
+          <g stroke="var(--muted)" stroke-width="1" fill="none">
+            <path d="M156 80 L214 40"/><path d="M146 125 L214 125"/><path d="M106 147 L214 205"/>
+          </g>
+          <g fill="var(--fg)" font-size="14" font-weight="600">
+            <text x="222" y="40">Kompartemen luar</text>
+            <text x="222" y="125">Film kitosan</text>
+            <text x="222" y="205">Kompartemen inti</text>
+          </g>
+          <g fill="var(--muted)" font-size="12">
+            <text x="222" y="57"><tspan font-style="italic">Bacillus</tspan> dalam matriks</text>
+            <text x="222" y="142">pelindung inti</text>
+            <text x="222" y="222">spora <tspan font-style="italic">Bacillus</tspan></text>
+          </g>
+        </svg>
+        <p class="note">Penampang melintang. Ilustrasi, tidak berskala.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="cara-kerja">
+    <div class="head">
+      <p class="eyebrow">Cara kerja</p>
+      <h2>Dari mulut ikan sampai usus</h2>
+      <p class="lead" style="max-width:60ch">Empat langkah yang dihipotesiskan. Pilih langkah untuk melihat simulasinya.</p>
+    </div>
+    <div class="steps" id="steps" role="group" aria-label="Langkah cara kerja">
+      <button type="button" data-step="1" aria-pressed="true"><span class="n">1</span>Dimakan</button>
+      <button type="button" data-step="2" aria-pressed="false"><span class="n">2</span>Lepas ke air</button>
+      <button type="button" data-step="3" aria-pressed="false"><span class="n">3</span>Inti ke usus</button>
+      <button type="button" data-step="4" aria-pressed="false"><span class="n">4</span>Bersaing</button>
+    </div>
+    <div class="stage wide" id="simStage">
+      <canvas id="simCanvas" tabindex="0" aria-label="Simulasi 3D cara kerja pelet pada ikan nila. Seret untuk memutar."></canvas>
+      <div class="hint">Seret untuk memutar</div>
+      <div class="fallback">Simulasi 3D membutuhkan WebGL. Teks di bawah menjelaskan keempat langkahnya.</div>
+    </div>
+    <div class="controls">
+      <button type="button" class="btn" id="replay">Putar ulang</button>
+    </div>
+    <div class="legend sim-legend">
+      <span><i class="sw" style="background:var(--outer)"></i>Lapisan luar</span>
+      <span><i class="sw" style="background:var(--core)"></i>Inti</span>
+      <span><i class="sw" style="background:var(--bac)"></i><i>Bacillus</i></span>
+      <span><i class="sw" style="background:var(--path)"></i>Patogen (<i>Aeromonas</i>)</span>
+      <span><i class="sw" style="background:var(--waste)"></i>Sisa pakan dan limbah</span>
+    </div>
+    <div class="info" aria-live="polite">
+      <p class="tag" id="stepTag"></p>
+      <h3 id="stepTitle"></h3>
+      <p id="stepText"></p>
+    </div>
+  </section>
+
+  <section id="perlakuan">
+    <div class="head">
+      <p class="eyebrow">Perbandingan</p>
+      <h2>Tiga perlakuan, satu pertanyaan</h2>
+      <p class="lead" style="max-width:60ch">Apakah dua jalur penghantaran dalam satu pelet lebih baik daripada pelet probiotik biasa?</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Kode</th><th>Jenis pelet</th><th>Probiotik <i>Bacillus</i></th><th>Jalur penghantaran</th></tr></thead>
+        <tbody>
+          <tr><td class="code">P0</td><td>Pelet tanpa probiotik</td><td>Tidak ada</td><td>Tidak ada</td></tr>
+          <tr><td class="code">P1</td><td>Pelet probiotik biasa</td><td>Ada</td><td>Satu jalur</td></tr>
+          <tr class="hi"><td class="code">P2</td><td><strong>Pelet dua kompartemen</strong></td><td>Ada, di kompartemen luar dan inti</td><td>Dua jalur: air kolam dan saluran pencernaan</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Setiap perlakuan memakai 3 ulangan dengan Rancangan Acak Lengkap. Pakan basal berprotein sekitar 29–30%, mengacu pada pakan nila.</p>
+  </section>
+
+  <section id="metode">
+    <div class="head">
+      <p class="eyebrow">Metode</p>
+      <h2>Cara pelet dibuat dan diuji</h2>
+    </div>
+    <div class="cols">
+      <div>
+        <ol class="flow">
+          <li><div><h3>Kajian literatur dan penelusuran paten</h3><p>Dasar rancangan dan pengecekan kebaruan.</p></div></li>
+          <li><div><h3>Formulasi dan pembuatan pelet</h3><p>Pelet berlapis dibuat manual di laboratorium. Inti dibuat lebih dulu, lalu dilapisi lapisan luar, sehingga tidak perlu mesin pencetak dua lapis.</p></div></li>
+          <li><div><h3>Uji viabilitas dan pelepasan <i>in vitro</i></h3><p>Mengukur sel hidup dan laju pelepasan di tiap kompartemen.</p></div></li>
+          <li><div><h3>Uji pemeliharaan pada nila</h3><p>Tiga perlakuan dibandingkan pada kondisi yang homogen.</p></div></li>
+          <li><div><h3>Analisis data dan penyusunan naskah</h3><p>Analisis ragam dan uji lanjut pada taraf kepercayaan 95%.</p></div></li>
+        </ol>
+      </div>
+      <dl class="meas">
+        <div><dt>Viabilitas <i>Bacillus</i></dt><dd>Hitung cawan dalam <span class="mono">CFU/g</span> untuk kompartemen inti dan luar.</dd></div>
+        <div><dt>Profil pelepasan <i>in vitro</i></dt><dd>Diuji pada air dan cairan pencernaan buatan untuk membuktikan perbedaan pelepasan antar-kompartemen.</dd></div>
+        <div><dt>Kualitas air</dt><dd>Terutama amonia dan nitrit.</dd></div>
+        <div><dt>Pertumbuhan dan kelangsungan hidup nila</dt><dd>Dibandingkan antar-perlakuan dengan ANOVA dan uji lanjut.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="indikator">
+    <div class="head">
+      <p class="eyebrow">Hipotesis dan target</p>
+      <h2>Kapan rancangan ini dianggap berhasil</h2>
+    </div>
+    <ul class="plain">
+      <li><strong>Viabilitas terjaga.</strong> <i>Bacillus</i> tetap hidup di kompartemen inti dan luar.</li>
+      <li><strong>Pelepasan berbeda.</strong> Kompartemen luar melepas lebih cepat daripada inti, dan perbedaannya nyata secara statistik.</li>
+      <li><strong>P2 lebih baik.</strong> Pelet dua kompartemen berbeda nyata lebih baik daripada P0 dan P1 pada kualitas air, pertumbuhan, atau kelangsungan hidup.</li>
+    </ul>
+    <p class="note" style="margin-top:22px">Luaran yang dituju: data viabilitas, profil pelepasan, dan kinerja ikan nila; formulasi pelet sebagai produk riset; artikel ilmiah dan, bila memungkinkan, pengajuan hak kekayaan intelektual setelah penelusuran paten.</p>
+  </section>
+
+  <footer>
+    Disusun dari proposal PKM-RE tim. Model 3D adalah ilustrasi dan tidak berskala. Mekanisme yang ditampilkan masih hipotesis dan menunggu hasil pengujian.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function(s){ return document.querySelector(s); };
+
+  if (typeof THREE === 'undefined') {
+    document.querySelectorAll('.stage').forEach(function(s){ s.classList.add('nogl'); });
+    initUI();
+    return;
+  }
+
+  var clamp = function(x,a,b){ a = a===undefined?0:a; b = b===undefined?1:b; return Math.min(b, Math.max(a, x)); };
+  var ease = function(x){ return 1 - Math.pow(1 - x, 3); };
+  var smooth = function(x){ return x*x*(3 - 2*x); };
+
+  var dotTex = (function(){
+    var c = document.createElement('canvas'); c.width = c.height = 64;
+    var g = c.getContext('2d');
+    var gr = g.createRadialGradient(32,32,2,32,32,30);
+    gr.addColorStop(0,'#fff'); gr.addColorStop(.8,'#fff'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(32,32,30,0,Math.PI*2); g.fill();
+    return new THREE.CanvasTexture(c);
+  })();
+
+  function makeRenderer(stage, canvas){
+    try {
+      var r = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      return r;
+    } catch (e) {
+      stage.classList.add('nogl');
+      return null;
+    }
+  }
+  function addLights(scene){
+    scene.add(new THREE.AmbientLight(0xffffff, .8));
+    var d1 = new THREE.DirectionalLight(0xffffff, .85); d1.position.set(3,5,4); scene.add(d1);
+    var d2 = new THREE.DirectionalLight(0xffffff, .3); d2.position.set(-4,-2,2); scene.add(d2);
+  }
+  function fit(stage, renderer, camera, cb){
+    var apply = function(){
+      var w = stage.clientWidth, h = stage.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      if (cb) cb(w, h);
+    };
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(stage);
+    window.addEventListener('resize', apply);
+    apply();
+  }
+  function attachDrag(el, rot, limX){
+    var d = false, lx = 0, ly = 0;
+    el.addEventListener('pointerdown', function(e){
+      d = true; lx = e.clientX; ly = e.clientY;
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      el.classList.add('drag');
+    });
+    el.addEventListener('pointermove', function(e){
+      if (!d) return;
+      rot.y += (e.clientX - lx) * .01;
+      rot.x = clamp(rot.x + (e.clientY - ly) * .008, -limX, limX);
+      lx = e.clientX; ly = e.clientY;
+    });
+    var end = function(){ d = false; el.classList.remove('drag'); };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowLeft'){ rot.y -= .15; e.preventDefault(); }
+      if (e.key === 'ArrowRight'){ rot.y += .15; e.preventDefault(); }
+      if (e.key === 'ArrowUp'){ rot.x = clamp(rot.x - .1, -limX, limX); e.preventDefault(); }
+      if (e.key === 'ArrowDown'){ rot.x = clamp(rot.x + .1, -limX, limX); e.preventDefault(); }
+    });
+  }
+  function std(color, extra){
+    var o = { color: color, roughness: .85, metalness: 0 };
+    if (extra) for (var k in extra) o[k] = extra[k];
+    return new THREE.MeshStandardMaterial(o);
+  }
+
+  var views = [];
+
+  /* ---------- Model pelet ---------- */
+  function initHero(){
+    var stage = $('#heroStage'), canvas = $('#heroCanvas');
+    var renderer = makeRenderer(stage, canvas);
+    if (!renderer) return;
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(32, 1, .1, 50);
+    camera.position.set(0, .7, 7.2); camera.lookAt(0, 0, 0);
+    addLights(scene);
+
+    var R = 1, H = 1.9, rc = .5, f = .07, Hc = 1.0, ARC = Math.PI * 1.5;
+    var mOuter = std(0xD9962B);
+    var mFilm = std(0x7FD6D0, { roughness: .45 });
+    var mCore = std(0x1F7A78, { roughness: .6 });
+    var mFilmG = std(0x7FD6D0, { roughness: .3, transparent: true, opacity: .3, depthWrite: false });
+    var mCoreG = std(0x1F7A78, { roughness: .5, transparent: true, opacity: .55, depthWrite: false });
+
+    function sector(rOut, rIn, y0, y1, arc){
+      var s = new THREE.Shape();
+      if (rIn > 0){ s.absarc(0, 0, rOut, 0, arc, false); s.absarc(0, 0, rIn, arc, 0, true); }
+      else { s.moveTo(0, 0); s.absarc(0, 0, rOut, 0, arc, false); }
+      var g = new THREE.ExtrudeGeometry(s, { depth: y1 - y0, bevelEnabled: false, curveSegments: 64 });
+      g.translate(0, 0, y0);
+      g.rotateX(-Math.PI / 2);
+      return g;
+    }
+
+    var pellet = new THREE.Group();
+    scene.add(pellet);
+
+    /* utuh */
+    var full = new THREE.Group();
+    full.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 72), mOuter));
+    pellet.add(full);
+
+    /* potongan */
+    var cut = new THREE.Group();
+    function ring(rIn, rOut, hIn, hOut, m){
+      cut.add(new THREE.Mesh(sector(rOut, rIn, -hIn/2, hIn/2, ARC), m));
+      cut.add(new THREE.Mesh(sector(rOut, 0, hIn/2, hOut/2, ARC), m));
+      cut.add(new THREE.Mesh(sector(rOut, 0, -hOut/2, -hIn/2, ARC), m));
+    }
+    cut.add(new THREE.Mesh(sector(rc, 0, -Hc/2, Hc/2, ARC), mCore));
+    ring(rc, rc + f, Hc, Hc + 2*f, mFilm);
+    ring(rc + f, R, Hc + 2*f, H, mOuter);
+
+    var sp = [], bc = [];
+    for (var i = 0; i < 6000 && (sp.length < 450 || bc.length < 330); i++){
+      var plane = i & 1;
+      var u = Math.random() * R, y = (Math.random() - .5) * H;
+      var inCore = u < rc - .05 && Math.abs(y) < Hc/2 - .05;
+      var inFilm = u < rc + f + .06 && Math.abs(y) < Hc/2 + f + .06;
+      var inOuter = !inFilm && u < R - .06 && Math.abs(y) < H/2 - .06;
+      var pt = plane ? [.012, y, u] : [u, y, .012];
+      if (inCore && sp.length < 450) sp.push(pt[0], pt[1], pt[2]);
+      else if (inOuter && bc.length < 330) bc.push(pt[0], pt[1], pt[2]);
+    }
+    function pts(arr, color){
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(arr), 3));
+      var m = new THREE.PointsMaterial({ color: color, size: .1, map: dotTex, transparent: true, alphaTest: .05, depthWrite: false });
+      return new THREE.Points(g, m);
+    }
+    var spores = pts(sp, 0xF6FFFB), bacOuter = pts(bc, 0x1B7A45);
+    cut.add(spores); cut.add(bacOuter);
+    pellet.add(cut);
+
+    /* inti saja */
+    var glass = new THREE.Group();
+    var gCore = new THREE.Mesh(new THREE.CylinderGeometry(rc, rc, Hc, 56), mCoreG); gCore.renderOrder = 1;
+    var gFilm = new THREE.Mesh(new THREE.CylinderGeometry(rc + f, rc + f, Hc + 2*f, 56), mFilmG); gFilm.renderOrder = 2;
+    var vol = [];
+    for (var j = 0; j < 160; j++){
+      var rr = rc * .88 * Math.sqrt(Math.random()), th = Math.random() * Math.PI * 2;
+      vol.push(rr * Math.cos(th), (Math.random() - .5) * Hc * .88, rr * Math.sin(th));
+    }
+    var vSp = pts(vol, 0xF6FFFB); vSp.renderOrder = 3;
+    glass.add(gCore); glass.add(gFilm); glass.add(vSp);
+    glass.scale.setScalar(1.6);
+    pellet.add(glass);
+
+    var captions = {
+      utuh: 'Tampak luar. Kompartemen luar membungkus seluruh pelet, inti tidak terlihat.',
+      potongan: 'Potongan. Lapisan luar (amber) berisi Bacillus dalam matriks. Di dalamnya ada film kitosan (biru muda) dan inti spora (hijau tua).',
+      inti: 'Inti saja. Spora Bacillus (titik putih) berada di dalam lapisan pelindung kitosan.'
+    };
+    var rot = { x: 0, y: 0 };
+    attachDrag(canvas, rot, .9);
+    function setMode(m){
+      full.visible = m === 'utuh';
+      cut.visible = m === 'potongan';
+      glass.visible = m === 'inti';
+      document.querySelectorAll('[data-mode]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'); });
+      $('#heroCaption').textContent = captions[m];
+    }
+    document.querySelectorAll('[data-mode]').forEach(function(b){ b.addEventListener('click', function(){ setMode(b.dataset.mode); }); });
+    setMode('potongan');
+
+    fit(stage, renderer, camera, function(w, h){
+      var px = function(p){ return p * 2 * 7.2 / h; };
+      spores.material.size = px(4.5); bacOuter.material.size = px(5.5); vSp.material.size = px(4.5) * 1.6 / 1.6;
+    });
+
+    views.push({
+      renderer: renderer, scene: scene, camera: camera, visible: true, stage: stage,
+      update: function(dt, t){
+        pellet.rotation.y = -.7 + rot.y + (reduce ? 0 : Math.sin(t * .5) * .35);
+        pellet.rotation.x = .28 + rot.x;
+      }
+    });
+  }
+
+  /* ---------- Simulasi cara kerja ---------- */
+  var sim = null;
+  function initSim(){
+    var stage = $('#simStage'), canvas = $('#simCanvas');
+    var renderer = makeRenderer(stage, canvas);
+    if (!renderer) return;
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(32, 4/3, .1, 60);
+    addLights(scene);
+    var world = new THREE.Group(); scene.add(world);
+    var V = function(x,y,z){ return new THREE.Vector3(x,y,z); };
+
+    /* ikan */
+    var bodyMat = std(0x5E9C93, { transparent: true, opacity: .2, depthWrite: false });
+    var body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), bodyMat); body.scale.set(1.75, .85, .6);
+    var wire = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x5E9C93, wireframe: true, transparent: true, opacity: .16, depthWrite: false }));
+    wire.scale.copy(body.scale);
+    var tg = new THREE.ConeGeometry(.6, 1, 24); tg.rotateZ(Math.PI / 2);
+    var tail = new THREE.Mesh(tg, std(0x5E9C93, { transparent: true, opacity: .3, depthWrite: false }));
+    tail.position.set(2.1, 0, 0); tail.scale.set(1, 1, .3);
+    var eye = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 12), new THREE.MeshBasicMaterial({ color: 0x12251F }));
+    eye.position.set(-1.25, .25, .34);
+    world.add(body, wire, tail, eye);
+
+    /* saluran pencernaan */
+    var gutMat = std(0xE59A8C, { transparent: true, opacity: .55, roughness: .6, depthWrite: false });
+    var curve = new THREE.CatmullRomCurve3([
+      V(-1.75,-.02,0), V(-1.2,-.05,0), V(-.7,-.05,0), V(-.25,-.25,0), V(.15,-.4,.05),
+      V(.55,-.05,-.05), V(.95,-.35,.03), V(1.35,-.15,0), V(1.7,-.2,0)
+    ]);
+    world.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 90, .085, 12, false), gutMat));
+    var lambung = new THREE.Mesh(new THREE.SphereGeometry(.33, 32, 20), gutMat);
+    lambung.scale.set(1.15, 1, .9); lambung.position.set(-.7, -.05, 0);
+    world.add(lambung);
+    function nearestU(v){
+      var best = 0, bd = 1e9;
+      for (var i = 0; i <= 400; i++){ var u = i / 400, d = curve.getPointAt(u).distanceToSquared(v); if (d < bd){ bd = d; best = u; } }
+      return best;
+    }
+    var UL = nearestU(V(-.7, -.05, 0)), UB = nearestU(V(.3, -.3, 0));
+    var mouthPt = curve.getPointAt(0);
+
+    /* pelet */
+    var pel = new THREE.Group(); world.add(pel);
+    var outerM = std(0xD9962B, { transparent: true });
+    var coreM = std(0x1F7A78, { transparent: true });
+    var outerMesh = new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .46, 32), outerM);
+    var coreMesh = new THREE.Mesh(new THREE.CylinderGeometry(.13, .13, .28, 32), coreM);
+    pel.add(coreMesh, outerMesh);
+    pel.rotation.z = Math.PI / 2;
+
+    /* partikel */
+    function system(n, color){
+      var g = new THREE.BufferGeometry();
+      var arr = new Float32Array(n * 3);
+      var attr = new THREE.BufferAttribute(arr, 3);
+      g.setAttribute('position', attr);
+      var m = new THREE.PointsMaterial({ color: color, size: .1, map: dotTex, transparent: true, alphaTest: .03, depthWrite: false, opacity: 0 });
+      var p = new THREE.Points(g, m); p.frustumCulled = false; world.add(p);
+      return { n: n, arr: arr, attr: attr, m: m, p: p };
+    }
+    var M2 = V(-2.1, .05, 0), S = V(-4.1, .95, .15);
+    var water = system(140, 0x23A559), waste = system(60, 0x9B7653), gut = system(90, 0x23A559), path = system(36, 0xE0402F);
+    var wDir = [], wDist = [], wPh = [], i;
+    for (i = 0; i < water.n; i++){
+      var d = V(Math.random() * 1.2 - 1.0, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize();
+      wDir.push(d); wDist.push(.5 + Math.random() * 1.8); wPh.push(Math.random() * 6.28);
+    }
+    var wsBase = [], wsPh = [];
+    for (i = 0; i < waste.n; i++){
+      wsBase.push(V(-4.3 + Math.random() * 2.4, -1.5 + Math.random() * 1.0, (Math.random() - .5) * 1.6));
+      wsPh.push(Math.random() * 6.28);
+    }
+    var P0 = curve.getPointAt(UB), gFinal = [], gPh = [];
+    for (i = 0; i < gut.n; i++){
+      var u = clamp(UB + (Math.random() - .5) * .3, .3, .92);
+      gFinal.push(curve.getPointAt(u).add(V((Math.random() - .5) * .08, (Math.random() - .5) * .08, (Math.random() - .5) * .08)));
+      gPh.push(Math.random() * 6.28);
+    }
+    var pBase = [], pPh = [];
+    for (i = 0; i < path.n; i++){
+      var u2 = UB + (Math.random() - .5) * .26;
+      pBase.push(curve.getPointAt(u2).add(V((Math.random() - .5) * .09, (Math.random() - .5) * .09, (Math.random() - .5) * .09)));
+      pPh.push(Math.random() * 6.28);
+    }
+
+    var CAM = {
+      1: { pos: V(-.8, .5, 10.2), look: V(-.8, 0, 0) },
+      2: { pos: V(-1.6, .4, 8.4), look: V(-1.6, 0, 0) },
+      3: { pos: V(-.3, .3, 6.6), look: V(-.3, -.1, 0) },
+      4: { pos: V(.5, .2, 3.8), look: V(.5, -.15, 0) }
+    };
+    var DUR = { 1: 4.5, 2: 6, 3: 9, 4: 6 };
+    var TEXT = {
+      1: ['Ikan memakan pelet', 'Ikan nila mendekati dan memakan pelet. Pelet masih utuh: kompartemen luar membungkus kompartemen inti.'],
+      2: ['Kompartemen luar melepas Bacillus ke air', 'Matriks kompartemen luar melepas Bacillus lebih cepat ke air kolam. Bacillus di air diharapkan membantu menguraikan sisa pakan dan limbah nitrogen.'],
+      3: ['Inti melewati lambung dan melepas Bacillus di usus', 'Spora di kompartemen inti, yang dilindungi kitosan, melewati lambung. Inti baru melepas Bacillus ketika sampai di usus.'],
+      4: ['Bacillus bersaing dengan patogen', 'Bacillus di usus bersaing dengan bakteri patogen seperti Aeromonas. Pengaruhnya diuji lewat pertumbuhan dan kelangsungan hidup nila.']
+    };
+    var state = { step: 1, t0: 0, now: 0 };
+    var user = { x: 0, y: 0 };
+    var camPos = CAM[1].pos.clone(), camLook = CAM[1].look.clone();
+    var simH = 400;
+    attachDrag(canvas, user, .5);
+
+    function setStep(n){
+      state.step = n; state.t0 = state.now; user.x = 0; user.y = 0;
+      document.querySelectorAll('[data-step]').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.step === String(n) ? 'true' : 'false'); });
+      $('#stepTag').textContent = 'Langkah ' + n + ' dari 4 · mekanisme yang dihipotesiskan';
+      $('#stepTitle').textContent = TEXT[n][0];
+      $('#stepText').textContent = TEXT[n][1];
+      if (reduce){ camPos.copy(CAM[n].pos); camLook.copy(CAM[n].look); }
+    }
+    document.querySelectorAll('[data-step]').forEach(function(b){ b.addEventListener('click', function(){ setStep(+b.dataset.step); }); });
+    $('#replay').addEventListener('click', function(){ state.t0 = state.now; });
+    setStep(1);
+
+    fit(stage, renderer, camera, function(w, h){ simH = h; });
+
+    function write(sys, i, v, t, ph, amp){
+      var a = amp === undefined ? .02 : amp;
+      sys.arr[i*3]   = v.x + Math.sin(t * 1.7 + ph) * a;
+      sys.arr[i*3+1] = v.y + Math.sin(t * 1.3 + ph * 1.7) * a;
+      sys.arr[i*3+2] = v.z + Math.sin(t * 1.9 + ph * .6) * a;
+    }
+    var tmp = new THREE.Vector3();
+
+    views.push({
+      renderer: renderer, scene: scene, camera: camera, visible: true, stage: stage,
+      update: function(dt, t){
+        state.now = t;
+        var st = state.step;
+        var p = reduce ? 1 : clamp((t - state.t0) / DUR[st]);
+        var k = reduce ? 1 : 1 - Math.exp(-dt * 3.2);
+        camPos.lerp(CAM[st].pos, k); camLook.lerp(CAM[st].look, k);
+        camera.position.copy(camPos); camera.lookAt(camLook);
+        var dist = camPos.distanceTo(camLook);
+        var px = function(v){ return v * 2 * dist / simH; };
+        world.rotation.y = user.y; world.rotation.x = user.x;
+        var bob = reduce ? 0 : Math.sin(t * 3) * .03;
+
+        /* pelet */
+        pel.visible = st <= 3;
+        outerMesh.visible = st <= 2;
+        coreM.opacity = 1; outerM.opacity = 1; pel.scale.setScalar(1);
+        if (st === 1){
+          pel.position.lerpVectors(S, M2, ease(p)); pel.position.y += bob;
+        } else if (st === 2){
+          pel.position.copy(M2); pel.position.y += bob;
+          outerM.opacity = 1 - .9 * smooth(p);
+        } else if (st === 3){
+          var pos;
+          if (p < .15) pos = tmp.copy(M2).lerp(mouthPt, ease(p / .15));
+          else if (p < .35) pos = curve.getPointAt(UL * ease((p - .15) / .2));
+          else if (p < .55) pos = curve.getPointAt(UL);
+          else if (p < .8) pos = curve.getPointAt(UL + (UB - UL) * smooth((p - .55) / .25));
+          else pos = curve.getPointAt(UB);
+          pel.position.copy(pos);
+          var q3 = clamp((p - .8) / .2);
+          pel.scale.setScalar(1 + .7 * q3);
+          coreM.opacity = 1 - q3;
+          pel.visible = q3 < 1;
+        }
+
+        /* Bacillus di air */
+        var q2 = st === 2 ? p : 1, i, v = new THREE.Vector3();
+        for (i = 0; i < water.n; i++){
+          v.copy(wDir[i]).multiplyScalar(wDist[i] * ease(q2)).add(M2);
+          write(water, i, v, t, wPh[i], .03);
+        }
+        water.attr.needsUpdate = true;
+        water.m.opacity = st === 1 ? 0 : (st === 2 ? clamp(p * 6) * .95 : .4);
+        water.m.size = px(5);
+
+        /* sisa pakan dan limbah */
+        for (i = 0; i < waste.n; i++) write(waste, i, wsBase[i], t, wsPh[i], .03);
+        waste.attr.needsUpdate = true;
+        waste.m.opacity = st === 1 ? .9 : (st === 2 ? .9 - .78 * smooth(clamp((p - .2) / .8)) : .12);
+        waste.m.size = px(4.5);
+
+        /* Bacillus di usus */
+        var qg = st === 3 ? clamp((p - .8) / .2) : (st === 4 ? 1 : 0);
+        for (i = 0; i < gut.n; i++){
+          v.copy(P0).lerp(gFinal[i], ease(qg));
+          write(gut, i, v, t, gPh[i], st === 4 ? .015 : .004);
+        }
+        gut.attr.needsUpdate = true;
+        gut.m.opacity = st >= 3 ? clamp(qg * 4) * .95 : 0;
+        gut.m.size = px(5.5);
+
+        /* patogen */
+        for (i = 0; i < path.n; i++) write(path, i, pBase[i], t, pPh[i], .015);
+        path.attr.needsUpdate = true;
+        if (st === 4){
+          var fade = smooth(clamp((p - .3) / .7));
+          path.m.opacity = p < .15 ? .95 * (p / .15) : .95 - .83 * fade;
+          path.m.size = px(8 - 3.5 * fade);
+        } else { path.m.opacity = 0; }
+
+        lambung.scale.set(1.15, 1, .9);
+        if (st === 3 && p >= .35 && p < .55) { var s = 1 + .04 * Math.sin(t * 6); lambung.scale.set(1.15 * s, s, .9 * s); }
+      }
+    });
+    sim = true;
+  }
+
+  function initUI(){}
+
+  initHero();
+  initSim();
+
+  if ('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ views.forEach(function(v){ if (v.stage === e.target) v.visible = e.isIntersecting; }); });
+    });
+    views.forEach(function(v){ io.observe(v.stage); });
+  }
+  var last = performance.now();
+  function loop(now){
+    var dt = Math.min(.05, (now - last) / 1000); last = now;
+    for (var i = 0; i < views.length; i++){
+      var v = views[i];
+      if (!v.visible) continue;
+      v.update(dt, now / 1000);
+      v.renderer.render(v.scene, v.camera);
+    }
+    requestAnimationFrame(loop);
+  }
+  if (views.length) requestAnimationFrame(loop);
+  else {
+    $('#stepTag').textContent = 'Langkah 1 dari 4 · mekanisme yang dihipotesiskan';
+    $('#stepTitle').textContent = 'Ikan memakan pelet';
+    $('#stepText').textContent = 'Ikan nila memakan pelet. Pelet masih utuh: kompartemen luar membungkus kompartemen inti.';
+    $('#heroCaption').textContent = 'Potongan. Lapisan luar berisi Bacillus dalam matriks, di dalamnya ada film kitosan dan inti spora.';
+  }
+})();
+</script>
